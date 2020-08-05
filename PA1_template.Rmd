@@ -1,25 +1,88 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
 output: 
-  html_document:
-    keep_md: true
+  html_document: 
+    keep_md: TRUE
+    
 ---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 
 ## Loading and preprocessing the data
+Read the csv file and convert the column date from class character to date
 
-
-
+```{r readdata, cache=FALSE}
+library(tidyverse)
+library(simputation)
+library(knitr)
+data<-read.csv("activity.csv" , sep = ",")
+data$date<-as.Date(data$date, format = "%Y-%m-%d")  
+```
 ## What is mean total number of steps taken per day?
 
+```{r meanmedian, cache=TRUE}
+stepspday<-data%>%group_by(date)%>%summarise(mean=mean(steps,na.rm = T), median=median(steps, na.rm = T),sum=sum(steps,na.rm = T))
+meansteps<-mean(stepspday$sum, na.rm = T)
+meansteps
+mediansteps<-median(stepspday$sum, na.rm = T)
+mediansteps
+```
 
+```{r stepsperday, include=TRUE}
+with(stepspday, hist(sum) )
+```
 
 ## What is the average daily activity pattern?
 
+```{r pattern}
 
+timeseries<-data%>%group_by(interval)%>%summarize(mean_steps=mean(steps, na.rm = T))
+timeseries%>%ggplot(aes(interval, mean_steps)) + geom_line()
+```
+
+The 5-minute interval that, on average, contains the maximum number of steps is:
+```{r maxint, cache=TRUE}
+maxsteps<-which.max(timeseries$mean_steps)
+timeseries[maxsteps,1]
+
+```
 
 ## Imputing missing values
+##Code to describe and show a strategy for imputing missing data
 
+
+Downloaded the package simputation and found the function impute_proxy
+Method: imputation by a group mean, calculates the mean of each group (interval ) and replaces the NA within each group with the mean
+```{r imputemissingdata, cache=TRUE}
+summary(data)
+datanew<-impute_proxy(dat = data,formula = steps~mean(steps,na.rm = T)| interval)
+summary(datanew)
+
+```
+
+##Histogram of the total number of steps taken each day after missing values are imputed
+```{r missing}
+data1<-datanew%>%group_by(date)%>%summarise(mean=mean(steps,na.rm = T), median=median(steps, na.rm = T),sum=sum(steps,na.rm = T))
+with(data1, hist(sum) )
+meanstepsnona<-mean(data1$sum)
+meanstepsnona
+medianstepsnona<-median(data1$sum)
+medianstepsnona
+
+```
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r compare}
+data2<-datanew%>%mutate (day = weekdays(date) )
+data2<-data2%>%mutate(dayw=ifelse(day %in% c("sábado", "domingo"), "weekend", "weekday"))
+
+data3<-data2%>%group_by(interval)%>%summarise(interval,mean_steps_day=mean(steps),dayw)
+data3%>%ggplot(aes(interval, mean_steps_day)) +geom_line()+facet_grid(dayw~.)
+
+
+
+```
